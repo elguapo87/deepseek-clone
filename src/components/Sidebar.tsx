@@ -1,7 +1,8 @@
 import Image from "next/image"
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useContext } from "react";
 import { assets } from "../../assets/assets";
-import { useClerk } from "@clerk/nextjs";
+import { useClerk, UserButton } from "@clerk/nextjs";
+import { AppContext } from "@/context/AppContext";
 
 type HomePageType = {
     expand: boolean;
@@ -9,6 +10,10 @@ type HomePageType = {
 }
 
 const Sidebar = ({ expand, setExpand }: HomePageType) => {
+
+  const context = useContext(AppContext);
+  if (!context) throw new Error("Sidebar must be within AppContextProvider");
+  const { user } = context;
 
   const { openSignIn } = useClerk();
 
@@ -45,8 +50,14 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
         </div>
       </div>
 
-      <div onClick={() => openSignIn()} className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full mb-5"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
-        <Image src={assets.profile_icon} alt="" className="w-7" />
+      <div onClick={() => { user ? null : openSignIn();}} className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full mb-5"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
+        {
+          user
+            ?
+          <UserButton />
+            :
+          <Image src={assets.profile_icon} alt="" className="w-7" />
+        }
         {expand && <span>My Profile</span>}
       </div>
     </div>
