@@ -41,7 +41,7 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
         </div>
       </div>
 
-      <div className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
+      <div className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full mb-5"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
         <Image src={assets.profile_icon} alt="" className="w-7" />
         {expand && <span>My Profile</span>}
       </div>
