@@ -4,8 +4,16 @@ import userModel from "@/models/userModel";
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
 
+interface WebhookData {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email_addresses: { email_address: string }[];
+    image_url?: string;
+  }
+
 type WebhookEvent = {
-  data: any;
+  data: WebhookData;
   type: string;
 };
 

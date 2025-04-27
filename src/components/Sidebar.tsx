@@ -57,7 +57,7 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
         </div>
       </div>
 
-      <div onClick={() => { user ? null : openSignIn();}} className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full mb-5"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
+      <div onClick={() => !user && openSignIn()} className={`flex items-center ${expand ? "hover:bg-white/10 rounded-lg" : "justify-center w-full mb-5"} gap-3 text-white/60 text-sm p-2 mt-2 cursor-pointer`}>
         {
           user
             ?

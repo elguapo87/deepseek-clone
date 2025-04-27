@@ -9,10 +9,13 @@ type HomePageProps = {
     setIsLoading: Dispatch<SetStateAction<boolean>>
 }
 
+ // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PromptBox = ({ isLoading, setIsLoading }: HomePageProps) => {
 
     const [prompt, setPrompt] = useState("");
 
+    console.log(isLoading, setIsLoading);
+    
     return (
         <form className={`w-full ${false ? "max-w-3xl" : "max-w-2xl"} bg-[#404045] p-4 rounded-3xl mt-4 transition-all`}>
             <textarea onChange={(e) => setPrompt(e.target.value)} value={prompt} rows={2} placeholder='Message DeepSeek' className='outline-none w-full resize-none overflow-hidden break-words bg-transparent' required></textarea>
