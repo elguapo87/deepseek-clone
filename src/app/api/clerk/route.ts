@@ -5,14 +5,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 interface ClerkUser {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email_addresses: { email_address: string }[];
+  first_name?: string | null;
+  last_name?: string | null;
+  email_addresses?: { email_address: string }[];
   image_url?: string;
 }
 
+interface ClerkDeletedUser {
+  id: string;
+  deleted: boolean;
+}
+
 interface ClerkEvent {
-  data: ClerkUser;
+  data: ClerkUser | ClerkDeletedUser;
   type: string;
 }
 
@@ -22,38 +27,35 @@ export async function POST(req: NextRequest) {
 
   const wh = new Webhook(signinSecret);
 
-  // ⛔ DON'T USE next/headers() here
   const svixHeaders = {
     "svix-id": req.headers.get("svix-id") ?? "",
     "svix-signature": req.headers.get("svix-signature") ?? "",
   };
 
   try {
-    const body = await req.text(); // 🛠️ Important to use text()
+    const body = await req.text();
     const { data, type } = wh.verify(body, svixHeaders) as ClerkEvent;
-
-    const userData = {
-      _id: data.id,
-      email: data.email_addresses[0].email_address,
-      name: `${data.first_name ?? ""} ${data.last_name ?? ""}`,
-      image: data.image_url ?? "",
-    };
 
     await connectDB();
 
-    switch (type) {
-      case "user.created":
+    if (type === "user.created" || type === "user.updated") {
+      const userData = {
+        _id: (data as ClerkUser).id,
+        email: (data as ClerkUser).email_addresses?.[0]?.email_address ?? "",
+        name: `${(data as ClerkUser).first_name ?? ""} ${(data as ClerkUser).last_name ?? ""}`,
+        image: (data as ClerkUser).image_url ?? "",
+      };
+
+      if (type === "user.created") {
         await userModel.create(userData);
-        break;
-      case "user.updated":
-        await userModel.findByIdAndUpdate(data.id, userData);
-        break;
-      case "user.deleted":
-        await userModel.findByIdAndDelete(data.id);
-        break;
-      default:
-        console.log(`Unhandled event type: ${type}`);
-        break;
+      } else if (type === "user.updated") {
+        await userModel.findByIdAndUpdate(userData._id, userData);
+      }
+    } else if (type === "user.deleted") {
+      const userId = (data as ClerkDeletedUser).id;
+      await userModel.findByIdAndDelete(userId);
+    } else {
+      console.log(`Unhandled event type: ${type}`);
     }
 
     return NextResponse.json({ message: "Event received" }, { status: 200 });
