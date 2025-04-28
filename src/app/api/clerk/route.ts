@@ -1,66 +1,81 @@
-import { Webhook } from "svix";
+import { NextApiRequest, NextApiResponse } from "next";
+import crypto from "crypto";
+import { ClerkWebhookEvent } from "@/types/clerkWebhooks";
 import connectDB from "@/config/db";
 import userModel from "@/models/userModel";
-import { NextRequest, NextResponse } from "next/server";
 
-interface ClerkUser {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email_addresses: { email_address: string }[];
-  image_url?: string;
-}
+const SECRET_KEY = process.env.CLERK_SECRET_KEY as string;
 
-interface ClerkEvent {
-  data: ClerkUser;
-  type: string;
-}
-
-export async function POST(req: NextRequest) {
-  const signinSecret = process.env.SIGNIN_SECRET;
-  if (!signinSecret) throw new Error("signinSecret is not defined");
-
-  const wh = new Webhook(signinSecret);
-
-  const svixHeaders = {
-    "svix-id": req.headers.get("svix-id") ?? "",
-    "svix-signature": req.headers.get("svix-signature") ?? "",
-  };
-
+const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   try {
-    const body = await req.text();
-    const { data, type } = wh.verify(body, svixHeaders) as ClerkEvent;
+    // Step 1: Validate incoming webhook
+    const signature = req.headers["clerk-signature"] as string;
+    const body = req.body;
+    const isValid = verifyClerkWebhook(signature, body);
 
-    if (process.env.NODE_ENV !== "production") {
-      console.log("🔔 Clerk Webhook Event:", JSON.stringify({ type, data }, null, 2));
+    if (!isValid) {
+      return res.status(400).json({ error: "Invalid signature." });
     }
 
-    await connectDB();
+    // Step 2: Handle each event type
+    const event: ClerkWebhookEvent = req.body;
 
-    switch (type) {
+    switch (event.type) {
       case "user.created":
       case "user.updated":
-        await userModel.findByIdAndUpdate(
-          data.id,
-          {
-            email: data.email_addresses[0]?.email_address ?? "",
-            name: `${data.first_name ?? ""} ${data.last_name ?? ""}`,
-            image: data.image_url ?? "",
-          },
-          { upsert: true, new: true }
-        );
+        await handleUserCreatedOrUpdated(event);
         break;
+
       case "user.deleted":
-        await userModel.findByIdAndDelete(data.id);
+        await handleUserDeleted(event);
         break;
+
       default:
-        console.log(`Unhandled event type: ${type}`);
-        break;
+        return res.status(200).json({ message: "Event not handled." });
     }
 
-    return NextResponse.json({ message: "Event received" }, { status: 200 });
+    // Step 3: Return success response
+    return res.status(200).json({ message: "Event processed successfully." });
   } catch (error) {
-    console.error("❌ Webhook error:", error);
-    return NextResponse.json({ message: "Error processing webhook" }, { status: 400 });
+    console.error("Error handling Clerk webhook:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-}
+};
+
+const verifyClerkWebhook = (signature: string, body: any) => {
+  const expectedSignature = crypto
+    .createHmac("sha256", SECRET_KEY)
+    .update(JSON.stringify(body))
+    .digest("hex");
+
+  return signature === expectedSignature;
+};
+
+// Handler for "user.created" and "user.updated"
+const handleUserCreatedOrUpdated = async (event: ClerkWebhookEvent) => {
+  await connectDB();
+
+  // Extract user data
+  const { id, email_addresses, first_name, last_name, image_url } = event.data;
+
+  await userModel.findByIdAndUpdate(
+    id,
+    {
+      email: email_addresses[0]?.email_address ?? "",
+      name: `${first_name ?? ""} ${last_name ?? ""}`,
+      image: image_url ?? "",
+    },
+    { upsert: true, new: true }
+  );
+};
+
+// Handler for "user.deleted"
+const handleUserDeleted = async (event: ClerkWebhookEvent) => {
+  await connectDB();
+
+  const { id } = event.data;
+
+  await userModel.findByIdAndDelete(id);
+};
+
+export default handler;
