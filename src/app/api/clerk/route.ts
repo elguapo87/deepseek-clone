@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 interface ClerkUser {
   id: string;
   first_name: string;
-  last_name: string;
+  last_name: string | null;
   email_addresses: { email_address: string }[];
   image_url?: string;
 }
@@ -19,49 +19,45 @@ interface ClerkEvent {
 
 export async function POST(req: NextRequest) {
   const signinSecret = process.env.SIGNIN_SECRET;
-  if (!signinSecret) throw new Error("signinSecret is not defined in dotenv");
+  if (!signinSecret) throw new Error("signinSecret is not defined");
 
-    // Create new Svix instance with secret
-    const wh = new Webhook(signinSecret)
+  const wh = new Webhook(signinSecret);
+  const headerPayload = headers();
+  const svixHeaders = {
+    "svix-id": (await headerPayload).get("svix-id") ?? "",
+    "svix-signature": (await headerPayload).get("svix-signature") ?? "",
+  };
 
-    const headerPayload = await headers()
-    const svixHeaders = {
-      "svix-id": headerPayload.get("svix-id") ?? "",
-      "svix-signature": headerPayload.get("svix-signature") ?? ""
-    };
-    
-    // Get The payload and verify it
-    const payload = await req.json();
-    const body = JSON.stringify(payload);
-    const { data, type } = wh.verify(body, svixHeaders) as ClerkEvent
+  try {
+    const body = await req.text(); 
+    const { data, type } = wh.verify(body, svixHeaders) as ClerkEvent;
 
-    // Prepare the user data to be saved in the database
-    const  userData = {
-      _id: data.id, 
+    const userData = {
+      _id: data.id,
       email: data.email_addresses[0].email_address,
-      name: `${data.first_name} ${data.last_name}`,
-      image: data.image_url
+      name: `${data.first_name} ${data.last_name || ""}`,
+      image: data.image_url || "",
     };
 
     await connectDB();
 
     switch (type) {
-      case "user.created": 
+      case "user.created":
         await userModel.create(userData);
         break;
-      
-      case "user.updated": 
+      case "user.updated":
         await userModel.findByIdAndUpdate(data.id, userData);
         break;
-
-      case "user.deleted": 
+      case "user.deleted":
         await userModel.findByIdAndDelete(data.id);
         break;
-
       default:
         break;
     }
 
-    return NextResponse.json({ message: "Event received" })
-};
-
+    return NextResponse.json({ message: "Event received" }, { status: 200 });
+  } catch (error) {
+    console.error("Webhook error:", error);
+    return NextResponse.json({ message: "Error processing webhook" }, { status: 400 });
+  }
+}
