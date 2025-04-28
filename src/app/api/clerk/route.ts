@@ -17,7 +17,7 @@ interface ClerkEvent {
   type: string;
 }
 
-export async function POST(req: NextRequest, res: NextResponse) {
+export async function POST(req: NextRequest) {
   const signinSecret = process.env.SIGNIN_SECRET;
   if (!signinSecret) throw new Error("signinSecret is not defined in dotenv");
 
