@@ -5,19 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 interface ClerkUser {
   id: string;
-  first_name?: string | null;
-  last_name?: string | null;
-  email_addresses?: { email_address: string }[];
+  first_name: string | null;
+  last_name: string | null;
+  email_addresses: { email_address: string }[];
   image_url?: string;
 }
 
-interface ClerkDeletedUser {
-  id: string;
-  deleted: boolean;
-}
-
 interface ClerkEvent {
-  data: ClerkUser | ClerkDeletedUser;
+  data: ClerkUser;
   type: string;
 }
 
@@ -36,31 +31,36 @@ export async function POST(req: NextRequest) {
     const body = await req.text();
     const { data, type } = wh.verify(body, svixHeaders) as ClerkEvent;
 
+    if (process.env.NODE_ENV !== "production") {
+      console.log("🔔 Clerk Webhook Event:", JSON.stringify({ type, data }, null, 2));
+    }
+
     await connectDB();
 
-    if (type === "user.created" || type === "user.updated") {
-      const userData = {
-        _id: (data as ClerkUser).id,
-        email: (data as ClerkUser).email_addresses?.[0]?.email_address ?? "",
-        name: `${(data as ClerkUser).first_name ?? ""} ${(data as ClerkUser).last_name ?? ""}`,
-        image: (data as ClerkUser).image_url ?? "",
-      };
-
-      if (type === "user.created") {
-        await userModel.create(userData);
-      } else if (type === "user.updated") {
-        await userModel.findByIdAndUpdate(userData._id, userData);
-      }
-    } else if (type === "user.deleted") {
-      const userId = (data as ClerkDeletedUser).id;
-      await userModel.findByIdAndDelete(userId);
-    } else {
-      console.log(`Unhandled event type: ${type}`);
+    switch (type) {
+      case "user.created":
+      case "user.updated":
+        await userModel.findByIdAndUpdate(
+          data.id,
+          {
+            email: data.email_addresses[0]?.email_address ?? "",
+            name: `${data.first_name ?? ""} ${data.last_name ?? ""}`,
+            image: data.image_url ?? "",
+          },
+          { upsert: true, new: true }
+        );
+        break;
+      case "user.deleted":
+        await userModel.findByIdAndDelete(data.id);
+        break;
+      default:
+        console.log(`Unhandled event type: ${type}`);
+        break;
     }
 
     return NextResponse.json({ message: "Event received" }, { status: 200 });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("❌ Webhook error:", error);
     return NextResponse.json({ message: "Error processing webhook" }, { status: 400 });
   }
 }
