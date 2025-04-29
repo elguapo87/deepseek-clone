@@ -6,33 +6,39 @@ if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable.");
 }
 
-// Extend globalThis WITHOUT namespace
-declare global {
-  var mongooseConnection: {
-    conn: typeof mongoose | null;
-    promise: Promise<typeof mongoose> | null;
-  } | undefined;
+// Extend globalThis properly
+interface MongooseConnection {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
 }
 
-// No initialization outside — only inside the function!
+declare global {
+  var mongooseConnection: MongooseConnection | undefined;
+}
+
+// Initialize the global connection object
+const globalWithMongoose = global as typeof globalThis & {
+  mongooseConnection: MongooseConnection;
+};
 
 async function connectDB() {
-  if (!global.mongooseConnection) {
-    global.mongooseConnection = { conn: null, promise: null };
+  if (!globalWithMongoose.mongooseConnection) {
+    globalWithMongoose.mongooseConnection = { conn: null, promise: null };
   }
 
-  if (global.mongooseConnection.conn) {
-    return global.mongooseConnection.conn;
+  if (globalWithMongoose.mongooseConnection.conn) {
+    return globalWithMongoose.mongooseConnection.conn;
   }
 
-  if (!global.mongooseConnection.promise) {
-    global.mongooseConnection.promise = mongoose.connect(MONGODB_URI, {
+  if (!globalWithMongoose.mongooseConnection.promise) {
+    globalWithMongoose.mongooseConnection.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
     });
   }
 
-  global.mongooseConnection.conn = await global.mongooseConnection.promise;
-  return global.mongooseConnection.conn;
+  globalWithMongoose.mongooseConnection.conn = await globalWithMongoose.mongooseConnection.promise;
+  return globalWithMongoose.mongooseConnection.conn;
 }
 
 export default connectDB;
+export {}; // <-- important for TypeScript to treat the file as a module
