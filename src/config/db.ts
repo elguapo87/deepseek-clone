@@ -1,3 +1,37 @@
+// import mongoose from "mongoose";
+
+// const MONGODB_URI = process.env.MONGODB_URI!;
+
+// if (!MONGODB_URI) {
+//   throw new Error("Please define the MONGODB_URI environment variable.");
+// }
+
+// // Define global type for mongoose connection caching
+// declare global {
+//   var mongooseConnection: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+// }
+
+// // Initialize global if not already
+// global.mongooseConnection ||= { conn: null, promise: null };
+
+// async function connectDB() {
+//   if (global.mongooseConnection.conn) {
+//     return global.mongooseConnection.conn;
+//   }
+
+//   if (!global.mongooseConnection.promise) {
+//     global.mongooseConnection.promise = mongoose.connect(MONGODB_URI, {
+//       bufferCommands: false,
+//     });
+//   }
+
+//   global.mongooseConnection.conn = await global.mongooseConnection.promise;
+//   return global.mongooseConnection.conn;
+// }
+
+// export default connectDB;
+
+
 import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI!;
@@ -6,12 +40,24 @@ if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable.");
 }
 
-// Define global type for mongoose connection caching
+// Extend globalThis to include mongooseConnection
 declare global {
-  var mongooseConnection: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null };
+  namespace NodeJS {
+    interface Global {
+      mongooseConnection: {
+        conn: typeof mongoose | null;
+        promise: Promise<typeof mongoose> | null;
+      };
+    }
+  }
+
+  var mongooseConnection: {
+    conn: typeof mongoose | null;
+    promise: Promise<typeof mongoose> | null;
+  };
 }
 
-// Initialize global if not already
+// Initialize global.mongooseConnection if not already
 global.mongooseConnection ||= { conn: null, promise: null };
 
 async function connectDB() {
@@ -30,3 +76,4 @@ async function connectDB() {
 }
 
 export default connectDB;
+
