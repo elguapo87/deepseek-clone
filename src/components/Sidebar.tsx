@@ -14,7 +14,7 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
 
   const context = useContext(AppContext);
   if (!context) throw new Error("Sidebar must be within AppContextProvider");
-  const { user } = context;
+  const { user, chats, createNewChat } = context;
 
   const { openSignIn } = useClerk();
 
@@ -40,7 +40,7 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
             </div>
         </div>
 
-        <button className={`mt-8 flex items-center justify-center cursor-pointer ${expand ? "bg-primary hover:opacity-90 rounded-2xl gap-2 p-2.5 w-max" : "group relative h-9 w-9 mx-auto hover:bg-gray-500/30 rounded-lg"}`}>
+        <button onClick={createNewChat} className={`mt-8 flex items-center justify-center cursor-pointer ${expand ? "bg-primary hover:opacity-90 rounded-2xl gap-2 p-2.5 w-max" : "group relative h-9 w-9 mx-auto hover:bg-gray-500/30 rounded-lg"}`}>
             <Image src={expand ? assets.chat_icon : assets.chat_icon_dull} alt="" className={expand ? "w-6" : "w-7"} />
             <div className="absolute w-max -top-12 -right-12 opacity-0 group-hover:opacity-100 transition bg-black text-white text-sm px-3 py-2 rounded-lg shadow-lg pointer-events-none">
                 New chat
@@ -53,7 +53,9 @@ const Sidebar = ({ expand, setExpand }: HomePageType) => {
         <div className={`mt-8 text-white/25 text-sm ${expand ? "block" : "hidden"}`}>
             <p className="my-1">Recents</p>
 
-            <ChatLabel openMenu={openMenu} setOpenMenu={setOpenMenu} />
+            {chats.map((chat) => (
+              <ChatLabel key={chat._id} openMenu={openMenu} setOpenMenu={setOpenMenu} name={chat.name} id={chat._id} />
+            ))}
         </div>
       </div>
 
